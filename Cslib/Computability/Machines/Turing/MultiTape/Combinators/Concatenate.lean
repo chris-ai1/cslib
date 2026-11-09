@@ -43,8 +43,8 @@ theorem ComputesInTimeAndSpace.concatenate {tm₁ : MultiTapeTM k₁ Symbol Stat
     (h₂ : tm₂.ComputesInTimeAndSpace input out₂ t₂ s₂) :
     (tm₁.concatenate tm₂).ComputesInTimeAndSpace input (out₁ ++ out₂)
       (2 * t₁ + t₂ + 2) (s₁ + s₂ + 2 * (k₁ + k₂)) := by
-  obtain ⟨p₁, hh₁, hhalt₁, ho₁, ht₁, hs₁⟩ := computesInTimeAndSpace_iff.mp h₁
-  obtain ⟨p₂, hh₂, hhalt₂, ho₂, ht₂, hs₂⟩ := computesInTimeAndSpace_iff.mp h₂
+  obtain ⟨p₁, hh₁, hhalt₁, ho₁, ht₁, hs₁⟩ := computesInTimeAndSpace_iff_exists_runPath.mp h₁
+  obtain ⟨p₂, hh₂, hhalt₂, ho₂, ht₂, hs₂⟩ := computesInTimeAndSpace_iff_exists_runPath.mp h₂
   let pa := p₁.map (embedHom tm₁ (Fin.castAddEmb k₂) (fun _ _ => none) (fun _ => 0))
   let c := pa.last
   let pr₁ := MultiTapeNTM.RunPath.ofDeterministic (rewindInput Symbol)
@@ -70,7 +70,7 @@ theorem ComputesInTimeAndSpace.concatenate {tm₁ : MultiTapeTM k₁ Symbol Stat
   obtain ⟨p, hh, hl, ht, hsp, _⟩ := exists_runPath_seq (p₀ := par) (p₁ := pb)
     (by rw [hlar, hrlast]; rfl)
     (by simpa [hlar, hrlast, Cfg.withState, Cfg.mapState] using hjoin)
-  rw [MultiTapeTM.concatenate, computesInTimeAndSpace_iff]
+  rw [MultiTapeTM.concatenate, computesInTimeAndSpace_iff_exists_runPath]
   refine ⟨p,
     (by
       simp only [hh, hhar, pa, RelSeries.head_map, embedHom_apply, hh₁]

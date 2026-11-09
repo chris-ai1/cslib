@@ -391,7 +391,7 @@ def ComputesInTimeAndSpace (tm : MultiTapeTM k Symbol State)
 
 /-- A deterministic computation satisfies time and space bounds exactly when it has a halted
 run path with those bounds and the required output. -/
-theorem computesInTimeAndSpace_iff {output : List Symbol} {t s : ℕ} :
+theorem computesInTimeAndSpace_iff_exists_runPath {output : List Symbol} {t s : ℕ} :
     tm.ComputesInTimeAndSpace input output t s ↔
       ∃ p : tm.RunPath input, p.head = tm.initCfg input ∧ p.last.Halted ∧
         p.last.output = output ∧ p.length ≤ t ∧ p.space ≤ s := by

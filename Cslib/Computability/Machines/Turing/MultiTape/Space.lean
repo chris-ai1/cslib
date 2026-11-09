@@ -187,7 +187,8 @@ lemma RunsInSpace.exists_space_max {s : ℕ} (hs : ntm.RunsInSpace input s) :
   obtain ⟨p, hp⟩ := Nat.sSup_mem hne hbdd
   exact ⟨p, fun q => (le_csSup hbdd ⟨q, rfl⟩).trans_eq hp.symm⟩
 
-/-- A space bound leaves room for the initial cell of every work tape. -/
+/-- A space bound is at least the number of work tapes, since the initial configuration
+visits one cell on each tape. -/
 lemma RunsInSpace.le {s : ℕ} (h : ntm.RunsInSpace input s) : k ≤ s := by
   have hs := h ⟨RelSeries.singleton _ (ntm.initCfg input), rfl⟩
   change (∑ _ : Fin k, ((Finset.univ : Finset (Fin 1)).image fun _ => (0 : ℤ)).card) ≤ s at hs
