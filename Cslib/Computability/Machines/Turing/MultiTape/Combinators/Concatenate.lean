@@ -9,6 +9,7 @@ module
 public import Cslib.Computability.Machines.Turing.MultiTape.Plumbing.RewindInput
 public import Cslib.Computability.Machines.Turing.MultiTape.Plumbing.Sequential
 public import Mathlib.Basic.Finite.Sum
+public import Cslib.Foundations.Data.Fin.Tuple
 
 /-!
 # Concatenating the outputs of two machines on the same input
@@ -42,34 +43,53 @@ theorem ComputesInTimeAndSpace.concatenate {tm₁ : MultiTapeTM k₁ Symbol Stat
     (h₂ : tm₂.ComputesInTimeAndSpace input out₂ t₂ s₂) :
     (tm₁.concatenate tm₂).ComputesInTimeAndSpace input (out₁ ++ out₂)
       (2 * t₁ + t₂ + 2) (s₁ + s₂ + 2 * (k₁ + k₂)) := by
-  obtain ⟨p₁, hh₁, hhalt₁, ho₁, ht₁, hs₁⟩ := h₁.exists_runPath
-  obtain ⟨p₂, hh₂, hhalt₂, ho₂, ht₂, hs₂⟩ := h₂.exists_runPath
+  obtain ⟨p₁, hh₁, hhalt₁, ho₁, ht₁, hs₁⟩ := computesInTimeAndSpace_iff.mp h₁
+  obtain ⟨p₂, hh₂, hhalt₂, ho₂, ht₂, hs₂⟩ := computesInTimeAndSpace_iff.mp h₂
   let pa := p₁.map (embedHom tm₁ (Fin.castAddEmb k₂) (fun _ _ => none) (fun _ => 0))
   let c := pa.last
-  obtain ⟨pr, hhr, hrlast, htr, hsr⟩ := exists_runPath_rewindInput c
+  let pr₁ := MultiTapeNTM.RunPath.ofDeterministic (rewindInput Symbol)
+    ⟨some (rewindInput Symbol).q₀, c.inputPos, nofun, nofun, c.output⟩ (c.inputPos.val - 1 + 2)
+  let pr := pr₁.map (embedHom (rewindInput Symbol) (noTapes (k₁ + k₂)) c.workTapes c.workTapePos)
+  have hrlast : pr.last = ⟨none, 1, c.workTapes, c.workTapePos, c.output⟩ := by
+    simp only [pr, RelSeries.last_map, embedHom_apply]
+    have hr : pr₁.last = ⟨none, 1, nofun, nofun, c.output⟩ :=
+      runFrom_rewindInput c.inputPos nofun nofun c.output
+    rw [hr, embed_noTapes]
   let pb := (p₂.map (tm₂.prependOutputHom out₁)).map
     (embedHom tm₂ (Fin.natAddEmb k₁) c.workTapes c.workTapePos)
   have hjoin : pb.head = pr.last.withState (some tm₂.q₀) := by
-    simp [pb, hrlast, hh₂, c, pa, embed_natAddEmb, embed_castAddEmb,
-      Cfg.prependOutput, Cfg.withState, MultiTapeNTM.initCfg, Cfg.init, Function.comp_def, ho₁]
-  obtain ⟨par, hhar, hlar, htar, hsar⟩ := exists_runPath_seq_space_le (p₁ := pa) (p₂ := pr)
-    (by change (embed _ p₁.last _ _).Halted; exact hhalt₁) hhr
-  obtain ⟨p, hh, hl, ht, hsp⟩ := exists_runPath_seq_space_le (p₁ := par) (p₂ := pb)
+    simp only [RelSeries.last_map, embedHom_apply, embed, ho₁, RelSeries.head_map, hh₂,
+      MultiTapeNTM.initCfg, Cfg.init, MultiTapeNTM.prependOutputHom_apply, Cfg.prependOutput,
+      List.append_nil, Cfg.withState, hrlast, Cfg.mk.injEq, and_true, true_and, pb, c, pa]
+    constructor <;> funext i <;> cases i using Fin.addCases <;>
+      simp only [← Fin.castAddEmb_apply, ← Fin.natAddEmb_apply, partialInv_embed]
+    all_goals simp [Set.mem_range, Fin.castAdd_ne_natAdd, ne_comm]
+  obtain ⟨par, hhar, hlar, htar, hsar, _⟩ := exists_runPath_seq (p₀ := pa) (p₁ := pr)
+    (by change (embed _ p₁.last _ _).Halted; exact hhalt₁)
+    (by simp only [pr, RelSeries.head_map, embedHom_apply, embed_noTapes]; rfl)
+  obtain ⟨p, hh, hl, ht, hsp, _⟩ := exists_runPath_seq (p₀ := par) (p₁ := pb)
     (by rw [hlar, hrlast]; rfl)
     (by simpa [hlar, hrlast, Cfg.withState, Cfg.mapState] using hjoin)
-  apply computesInTimeAndSpace_of_runPath (p := p)
+  rw [MultiTapeTM.concatenate, computesInTimeAndSpace_iff]
+  refine ⟨p,
     (by
-      simp only [hh, hhar, pa, RelSeries.head_map, embedHom_apply, hh₁, embed_init]
-      rfl)
-    (by simpa [hl, pb, Cfg.Halted, Cfg.mapState, embed, Cfg.prependOutput] using hhalt₂)
-    (by simp [hl, pb, Cfg.mapState, embed, Cfg.prependOutput, ho₂])
+      simp only [hh, hhar, pa, RelSeries.head_map, embedHom_apply, hh₁]
+      refine Cfg.ext rfl rfl ?_ ?_ rfl <;> funext i <;>
+        simp only [embed, Cfg.mapState, MultiTapeNTM.initCfg, Cfg.init] <;>
+        cases partialInv (Fin.castAddEmb k₂) i <;> rfl),
+    (by simpa [hl, pb, Cfg.Halted, Cfg.mapState, embed, Cfg.prependOutput] using hhalt₂),
+    (by simp [hl, pb, Cfg.mapState, embed, Cfg.prependOutput, ho₂]), ?_, ?_⟩
   · have hin : c.inputPos.val ≤ 1 + p₁.length := by
       change (p₁ (Fin.last p₁.length)).inputPos.val ≤ _
       rw [runPath_apply_eq_runFrom, hh₁]
       exact inputPos_runFrom_le ..
-    simp only [pa, pb, RelSeries.map_length] at htar ht
+    simp only [pa, pb, pr, pr₁, RelSeries.map_length,
+      MultiTapeNTM.RunPath.ofDeterministic] at htar ht
     omega
-  · have hsPa : pa.space ≤ s₁ + k₂ :=
+  · have hsr : pr.space ≤ k₁ + k₂ := by
+      simpa [MultiTapeNTM.RunPath.space] using
+        space_map_embedHom_le (rewindInput Symbol) (noTapes (k₁ + k₂)) c.workTapes c.workTapePos pr₁
+    have hsPa : pa.space ≤ s₁ + k₂ :=
       (space_map_embedHom_le ..).trans (by omega)
     have hsPb : pb.space ≤ s₂ + k₁ :=
       (space_map_embedHom_le ..).trans (by change p₂.space + _ ≤ _; omega)

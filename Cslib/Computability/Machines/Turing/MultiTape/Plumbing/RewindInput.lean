@@ -105,26 +105,4 @@ public theorem runFrom_rewindInput (p : Fin (input.length + 2))
   simp only [rewindInput, tr_ofTr]
   exact Rewind.runFrom_walk (moveInputPos p .neg) (by omega)
 
-/-- Rewind from any configuration without disturbing work tapes or output. -/
-public theorem exists_runPath_rewindInput {k : ℕ} {State : Type*}
-    (c : Cfg k Symbol State input) :
-    let r := (rewindInput Symbol).extendTapes (noTapes k)
-    ∃ p : r.RunPath input, p.head = c.withState (some r.q₀) ∧
-      p.last = ⟨none, 1, c.workTapes, c.workTapePos, c.output⟩ ∧
-      p.length = c.inputPos.val - 1 + 2 ∧ p.space ≤ k := by
-  let r := (rewindInput Symbol).extendTapes (noTapes k)
-  refine ⟨.ofDeterministic r (c.withState (some r.q₀)) (c.inputPos.val - 1 + 2), rfl, ?_, rfl, ?_⟩
-  · change r.runFrom _ (c.inputPos.val - 1 + 2) = _
-    rw [runFrom_noTapes]
-    have h := runFrom_rewindInput c.inputPos nofun nofun c.output
-    change (rewindInput Symbol).runFrom (noTapesCfg (c.withState (some r.q₀))) _ = _ at h
-    rw [h]
-    rfl
-  · apply (MultiTapeNTM.RunPath.space_le_sum_card _ (S := fun i => {c.workTapePos i}) ?_).trans_eq
-      (by simp)
-    rintro _ ⟨n, rfl⟩ i
-    change (r.runFrom (c.withState _) n).workTapePos i ∈ _
-    rw [runFrom_noTapes]
-    simp
-
 end Turing.MultiTapeTM
