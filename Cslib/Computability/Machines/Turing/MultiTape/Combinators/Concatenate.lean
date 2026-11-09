@@ -104,10 +104,11 @@ theorem ComputableInTimeAndSpace.concatenate {α β γ δ : Type*} {f₁ : α �
       (fun x => 3 * (s₁ x + s₂ x)) := by
   obtain ⟨k₁, State₁, _, tm₁, hm₁⟩ := h₁
   obtain ⟨k₂, State₂, _, tm₂, hm₂⟩ := h₂
-  refine ⟨k₁ + k₂, _, inferInstance, tm₁.concatenate tm₂, fun x => ?_⟩
-  have h := hm₁.concatenate hm₂ henc x
+  refine ⟨k₁ + k₂, _, inferInstance, tm₁.concatenate tm₂,
+    (hm₁.concatenate hm₂ henc).mono (fun _ => le_rfl) ?_⟩
+  intro x
   have hk₁ := (hm₁ x).2.2.le
   have hk₂ := (hm₂ x).2.2.le
-  exact ⟨h.1, h.2.1, h.2.2.mono (by dsimp only; omega)⟩
+  omega
 
 end Turing.MultiTapeTM
