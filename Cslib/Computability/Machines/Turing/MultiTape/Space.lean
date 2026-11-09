@@ -118,6 +118,16 @@ lemma visitedByTapeHead_snoc (p : ntm.RunPath input) (c : Cfg k Symbol State inp
   ext z
   simp [RelSeries.mem_snoc, or_and_right, exists_or, eq_comm, or_comm]
 
+/-- A final step that leaves the work heads in place does not increase space. -/
+lemma space_snoc_eq (p : ntm.RunPath input) (c : Cfg k Symbol State input)
+    (h : ntm.Step p.last c) (hpos : c.workTapePos = p.last.workTapePos) :
+    space (p.snoc c h) = p.space := by
+  unfold space spaceUsedByTape
+  congr 1
+  funext i
+  rw [visitedByTapeHead_snoc, hpos, Finset.insert_eq_of_mem]
+  exact p.mem_visitedByTapeHead.mpr ⟨p.last, p.last_mem, rfl⟩
+
 /-! ### Windows -/
 
 /-- Every head stays within the window `[-s, s]` along the path. -/

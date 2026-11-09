@@ -70,6 +70,29 @@ theorem exists_runPath_seq {p₀ : tm₀.RunPath input} (h₀ : p₀.last.Halted
     (Finset.sum_le_sum fun i _ => (Finset.card_le_card (hv i)).trans
       (Finset.card_union_le _ _)).trans_eq Finset.sum_add_distrib, hv⟩
 
+/-- Compose bounded deterministic runs at the input position and output left by the first phase.
+No input-head reset is required. The handoff is part of the first phase's halting step. -/
+theorem exists_runFrom_seq {State₂ : Type*} {tm₂ : MultiTapeTM k Symbol State₂}
+    {c mid : Cfg k Symbol State₁ input}
+    {last : Cfg k Symbol State₂ input} {t₁ t₂ : ℕ}
+    (h₁ : tm₁.runFrom c t₁ = mid) (hh₁ : mid.Halted)
+    (h₂ : tm₂.runFrom (mid.withState (some tm₂.q₀)) t₂ = last) :
+    ∃ t ≤ t₁ + t₂, (tm₁.seq tm₂).runFrom (c.mapState (handOver tm₂.q₀)) t =
+      last.mapState (Option.map .inr) := by
+  let p₁ := MultiTapeNTM.RunPath.ofDeterministic tm₁ c t₁
+  let p₂ := MultiTapeNTM.RunPath.ofDeterministic tm₂ (mid.withState (some tm₂.q₀)) t₂
+  obtain ⟨p, hhead, hlast, htime, _⟩ := exists_runPath_seq (p₀ := p₁) (p₁ := p₂)
+    (by change (tm₁.runFrom c t₁).Halted; rw [h₁]; exact hh₁)
+    (by change mid.withState _ = (tm₁.runFrom c t₁).withState _; rw [h₁])
+  refine ⟨p.length, htime, ?_⟩
+  have hp : p.last = (tm₁.seq tm₂).runFrom p.head p.length :=
+    runPath_apply_eq_runFrom p (.last _)
+  rw [hp, hhead] at hlast
+  change (tm₁.seq tm₂).runFrom (c.mapState (handOver tm₂.q₀)) p.length =
+    p₂.last.mapState (Option.map Sum.inr) at hlast
+  rw [show p₂.last = last from h₂] at hlast
+  exact hlast
+
 /-- **Sequential composition of transformations.** If the postcondition of the first
 transformation implies the precondition of the second, the composed machine performs the two
 transformations one after the other, with the time and space bounds adding and the emitted words
