@@ -65,6 +65,16 @@ theorem exists_runPath_seq {p₀ : tm₀.RunPath input} (h₀ : p₀.last.Halted
   · exact Finset.mem_union_left _ (p₀.mem_visitedByTapeHead.mpr ⟨c', hmem₀ c' hc', rfl⟩)
   · exact Finset.mem_union_right _ (p₁.mem_visitedByTapeHead.mpr ⟨c', hc', rfl⟩)
 
+/-- Sequential paths compose with additive time and space bounds. -/
+theorem exists_runPath_seq_space_le {State₂ : Type*} {tm₂ : MultiTapeTM k Symbol State₂}
+    {p₁ : tm₁.RunPath input} (h₁ : p₁.last.Halted)
+    {p₂ : tm₂.RunPath input} (h₂ : p₂.head = p₁.last.withState (some tm₂.q₀)) :
+    ∃ p : (tm₁.seq tm₂).RunPath input, p.head = p₁.head.mapState (handOver tm₂.q₀) ∧
+      p.last = p₂.last.mapState (Option.map .inr) ∧ p.length ≤ p₁.length + p₂.length ∧
+      p.space ≤ p₁.space + p₂.space := by
+  obtain ⟨p, hh, hl, ht, hv⟩ := exists_runPath_seq h₁ h₂
+  exact ⟨p, hh, hl, ht, p.space_le_add p₁ p₂ hv⟩
+
 /-- **Sequential composition of transformations.** If the postcondition of the first
 transformation implies the precondition of the second, the composed machine performs the two
 transformations one after the other, with the time and space bounds adding and the emitted words

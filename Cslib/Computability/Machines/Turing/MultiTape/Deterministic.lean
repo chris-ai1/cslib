@@ -361,6 +361,24 @@ lemma runsInTime_of_halted {input : List Symbol} {t : ℕ}
   rw [computationPath_last_eq_runFrom p, runFrom_eq_of_halt _ _ hp h]
   exact h
 
+/-- After a deterministic path halts, every path from the same head stays among its
+configurations. -/
+lemma mem_of_last_halted {p q : tm.RunPath input} (hp : p.last.Halted) (hq : q.head = p.head) :
+    ∀ c ∈ q, c ∈ p := by
+  rintro _ ⟨n, rfl⟩
+  have hlast : tm.runFrom p.head p.length = p.last := (runPath_apply_eq_runFrom p (.last _)).symm
+  rw [runPath_apply_eq_runFrom, hq]
+  rcases le_or_gt n.val p.length with h | h
+  · exact ⟨⟨n, Nat.lt_succ_of_le h⟩, runPath_apply_eq_runFrom p _⟩
+  · rw [runFrom_eq_of_halt tm _ h.le (hlast ▸ hp), hlast]
+    exact ⟨.last _, rfl⟩
+
+/-- A halted path from the initial configuration bounds the space of every computation prefix. -/
+lemma runsInSpace_of_runPath {s : ℕ} {p : tm.RunPath input} (hhead : p.head = tm.initCfg input)
+    (hp : p.last.Halted) (hs : p.space ≤ s) : tm.RunsInSpace input s :=
+  fun q => (MultiTapeNTM.RunPath.space_le_of_subset
+    (mem_of_last_halted hp (q.head_eq.trans hhead.symm))).trans hs
+
 /-- In `t` steps the input head moves at most `t` positions to the right. -/
 lemma inputPos_runFrom_le (tm : MultiTapeTM k Symbol State)
     (cfg : Cfg k Symbol State input) (t : ℕ) :
@@ -388,6 +406,33 @@ def Computes (tm : MultiTapeTM k Symbol State) (input output : List Symbol) : Pr
 def ComputesInTimeAndSpace (tm : MultiTapeTM k Symbol State)
     (input output : List Symbol) (t s : ℕ) : Prop :=
   tm.Computes input output ∧ tm.RunsInTime input t ∧ tm.RunsInSpace input s
+
+/-- Package a bounded halted run path as a computation with time and space bounds. -/
+theorem computesInTimeAndSpace_of_runPath {output : List Symbol} {t s : ℕ}
+    {p : tm.RunPath input} (hhead : p.head = tm.initCfg input) (hhalt : p.last.Halted)
+    (hout : p.last.output = output) (ht : p.length ≤ t) (hs : p.space ≤ s) :
+    tm.ComputesInTimeAndSpace input output t s := by
+  have hr : tm.runFrom (tm.initCfg input) p.length = p.last := by
+    rw [← hhead]
+    exact (runPath_apply_eq_runFrom p (.last _)).symm
+  have hh : (tm.runFrom (tm.initCfg input) p.length).Halted := hr ▸ hhalt
+  exact ⟨⟨p.length, hh, hr ▸ hout⟩, (runsInTime_of_halted hh).mono ht,
+    runsInSpace_of_runPath hhead hhalt hs⟩
+
+/-- A computation within the given bounds has a halted path satisfying them. -/
+theorem ComputesInTimeAndSpace.exists_runPath {output : List Symbol} {t s : ℕ}
+    (h : tm.ComputesInTimeAndSpace input output t s) :
+    ∃ p : tm.RunPath input, p.head = tm.initCfg input ∧ p.last.Halted ∧
+      p.last.output = output ∧ p.length ≤ t ∧ p.space ≤ s := by
+  let p := MultiTapeNTM.ComputationPath.ofDeterministic tm input t
+  have hh : p.last.Halted := h.2.1 p le_rfl
+  obtain ⟨u, hu, hout⟩ := h.1
+  have heq : tm.runFrom (tm.initCfg input) u = p.last := by
+    change tm.runFrom (tm.initCfg input) u = tm.runFrom (tm.initCfg input) t
+    rcases le_total u t with hut | htu
+    · exact (runFrom_eq_of_halt tm _ hut hu).symm
+    · exact runFrom_eq_of_halt tm _ htu hh
+  exact ⟨p.toRunPath, rfl, hh, heq ▸ hout, le_rfl, h.2.2 p⟩
 
 /-- The machine computes `f` relative to given encodings within the given time and space bounds. -/
 def ComputesFunInTimeAndSpace {α β : Type*} (tm : MultiTapeTM k Symbol State)

@@ -134,6 +134,52 @@ agrees with the adapter defining `extendTapes`. -/
       refine Cfg.ext rfl rfl ?_ ?_ rfl <;> funext l <;> simp only [Action.apply, embed] <;>
         cases partialInv e l <;> simp
 
+private lemma partialInv_left_right (i : Fin k') :
+    partialInv (Fin.castAddEmb k') (Fin.natAdd k i) = none := by
+  apply partialInv_eq_none
+  rintro ⟨j, hj⟩
+  have := congrArg Fin.val hj
+  simp only [Fin.castAddEmb_apply, Fin.val_castAdd, Fin.val_natAdd] at this
+  omega
+
+private lemma partialInv_right_left (i : Fin k) :
+    partialInv (Fin.natAddEmb k) (Fin.castAdd k' i) = none := by
+  apply partialInv_eq_none
+  rintro ⟨j, hj⟩
+  have := congrArg Fin.val hj
+  change k + j.val = i.val at this
+  omega
+
+/-- Placing a configuration on the left block appends the unused right block of tapes. -/
+public lemma embed_castAddEmb (c : Cfg k Symbol State input)
+    (tapes : Fin (k + k') → ℤ → Option Symbol) (heads : Fin (k + k') → ℤ) :
+    embed (Fin.castAddEmb k') c tapes heads =
+      ⟨c.state, c.inputPos, Fin.append c.workTapes (tapes ∘ Fin.natAdd k),
+        Fin.append c.workTapePos (heads ∘ Fin.natAdd k), c.output⟩ := by
+  have own (i : Fin k) : partialInv (Fin.castAddEmb k') (Fin.castAdd k' i) = some i :=
+    partialInv_embed _ i
+  refine Cfg.ext rfl rfl ?_ ?_ rfl <;> funext i <;>
+    induction i using Fin.addCases <;> simp [embed, own, partialInv_left_right]
+
+/-- Placing a configuration on the right block prepends the unused left block of tapes. -/
+public lemma embed_natAddEmb (c : Cfg k' Symbol State input)
+    (tapes : Fin (k + k') → ℤ → Option Symbol) (heads : Fin (k + k') → ℤ) :
+    embed (Fin.natAddEmb k) c tapes heads =
+      ⟨c.state, c.inputPos, Fin.append (tapes ∘ Fin.castAdd k') c.workTapes,
+        Fin.append (heads ∘ Fin.castAdd k') c.workTapePos, c.output⟩ := by
+  have own (i : Fin k') : partialInv (Fin.natAddEmb k) (Fin.natAdd k i) = some i :=
+    partialInv_embed _ i
+  refine Cfg.ext rfl rfl ?_ ?_ rfl <;> funext i <;>
+    induction i using Fin.addCases <;> simp [embed, own, partialInv_right_left]
+
+/-- Extending the initial configuration with blank tapes gives the larger machine's initial
+configuration. -/
+public lemma embed_init (tm : MultiTapeTM k Symbol State) (e : Fin k ↪ Fin k') :
+    embed e (tm.initCfg input) (fun _ _ => none) (fun _ => 0) =
+      (tm.extendTapes e).initCfg input := by
+  refine Cfg.ext rfl rfl ?_ ?_ rfl <;> funext i <;>
+    simp only [embed, MultiTapeNTM.initCfg, Cfg.init] <;> cases partialInv e i <;> rfl
+
 section Space
 
 /-- **Space bound for a reindexed path.** The embedded tapes visit what the original path visits,

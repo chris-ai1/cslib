@@ -93,6 +93,16 @@ lemma space_le_sum_card (p : ntm.RunPath input) {S : Fin k → Finset ℤ}
     (h : ∀ c ∈ p, ∀ i, c.workTapePos i ∈ S i) : p.space ≤ ∑ i, (S i).card :=
   Finset.sum_le_sum fun i _ => p.spaceUsedByTape_le_card fun c hc => h c hc i
 
+/-- If each head position on a path is visited along one of two other paths, their spaces
+sum to an upper bound for its space. -/
+lemma space_le_add {State₁ State₂ : Type*} {ntm₁ : MultiTapeNTM k Symbol State₁}
+    {ntm₂ : MultiTapeNTM k Symbol State₂} (p : ntm.RunPath input) (q : ntm₁.RunPath input)
+    (r : ntm₂.RunPath input)
+    (h : ∀ i, p.visitedByTapeHead i ⊆ q.visitedByTapeHead i ∪ r.visitedByTapeHead i) :
+    p.space ≤ q.space + r.space :=
+  (Finset.sum_le_sum fun i _ => (Finset.card_le_card (h i)).trans
+    (Finset.card_union_le _ _)).trans_eq Finset.sum_add_distrib
+
 /-- A path whose configurations all lie on another path visits no more cells. -/
 lemma space_le_of_subset {p q : ntm.RunPath input} (h : ∀ c ∈ q, c ∈ p) : q.space ≤ p.space :=
   q.space_le_sum_card fun c hc _ =>
@@ -186,6 +196,16 @@ lemma RunsInSpace.exists_space_max {s : ℕ} (hs : ntm.RunsInSpace input s) :
     ⟨s, by rintro _ ⟨p, rfl⟩; exact hs p⟩
   obtain ⟨p, hp⟩ := Nat.sSup_mem hne hbdd
   exact ⟨p, fun q => (le_csSup hbdd ⟨q, rfl⟩).trans_eq hp.symm⟩
+
+/-- Every work tape contributes at least its initial head position to a path's space. -/
+lemma RunPath.le_space (p : ntm.RunPath input) : k ≤ p.space :=
+  calc k = ∑ _ : Fin k, 1 := by simp
+       _ ≤ p.space := Finset.sum_le_sum fun _ _ =>
+         Finset.card_pos.mpr (Finset.univ_nonempty.image _)
+
+/-- A space bound leaves room for the initial cell of every work tape. -/
+lemma RunsInSpace.le {s : ℕ} (h : ntm.RunsInSpace input s) : k ≤ s :=
+  (RunPath.le_space _).trans (h ⟨RelSeries.singleton _ (ntm.initCfg input), rfl⟩)
 
 /-- A machine without work tapes satisfies every space bound. -/
 @[simp]
