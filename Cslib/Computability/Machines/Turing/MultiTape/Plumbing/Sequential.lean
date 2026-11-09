@@ -73,7 +73,8 @@ theorem exists_runPath_seq_space_le {State₂ : Type*} {tm₂ : MultiTapeTM k Sy
       p.last = p₂.last.mapState (Option.map .inr) ∧ p.length ≤ p₁.length + p₂.length ∧
       p.space ≤ p₁.space + p₂.space := by
   obtain ⟨p, hh, hl, ht, hv⟩ := exists_runPath_seq h₁ h₂
-  exact ⟨p, hh, hl, ht, p.space_le_add p₁ p₂ hv⟩
+  exact ⟨p, hh, hl, ht, (Finset.sum_le_sum fun i _ => (Finset.card_le_card (hv i)).trans
+    (Finset.card_union_le _ _)).trans_eq Finset.sum_add_distrib⟩
 
 /-- **Sequential composition of transformations.** If the postcondition of the first
 transformation implies the precondition of the second, the composed machine performs the two

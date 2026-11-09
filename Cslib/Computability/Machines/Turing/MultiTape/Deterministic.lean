@@ -373,12 +373,6 @@ lemma mem_of_last_halted {p q : tm.RunPath input} (hp : p.last.Halted) (hq : q.h
   · rw [runFrom_eq_of_halt tm _ h.le (hlast ▸ hp), hlast]
     exact ⟨.last _, rfl⟩
 
-/-- A halted path from the initial configuration bounds the space of every computation prefix. -/
-lemma runsInSpace_of_runPath {s : ℕ} {p : tm.RunPath input} (hhead : p.head = tm.initCfg input)
-    (hp : p.last.Halted) (hs : p.space ≤ s) : tm.RunsInSpace input s :=
-  fun q => (MultiTapeNTM.RunPath.space_le_of_subset
-    (mem_of_last_halted hp (q.head_eq.trans hhead.symm))).trans hs
-
 /-- In `t` steps the input head moves at most `t` positions to the right. -/
 lemma inputPos_runFrom_le (tm : MultiTapeTM k Symbol State)
     (cfg : Cfg k Symbol State input) (t : ℕ) :
@@ -417,7 +411,8 @@ theorem computesInTimeAndSpace_of_runPath {output : List Symbol} {t s : ℕ}
     exact (runPath_apply_eq_runFrom p (.last _)).symm
   have hh : (tm.runFrom (tm.initCfg input) p.length).Halted := hr ▸ hhalt
   exact ⟨⟨p.length, hh, hr ▸ hout⟩, (runsInTime_of_halted hh).mono ht,
-    runsInSpace_of_runPath hhead hhalt hs⟩
+    fun q => (MultiTapeNTM.RunPath.space_le_of_subset
+      (mem_of_last_halted hhalt (q.head_eq.trans hhead.symm))).trans hs⟩
 
 /-- A computation within the given bounds has a halted path satisfying them. -/
 theorem ComputesInTimeAndSpace.exists_runPath {output : List Symbol} {t s : ℕ}
@@ -429,9 +424,8 @@ theorem ComputesInTimeAndSpace.exists_runPath {output : List Symbol} {t s : ℕ}
   obtain ⟨u, hu, hout⟩ := h.1
   have heq : tm.runFrom (tm.initCfg input) u = p.last := by
     change tm.runFrom (tm.initCfg input) u = tm.runFrom (tm.initCfg input) t
-    rcases le_total u t with hut | htu
-    · exact (runFrom_eq_of_halt tm _ hut hu).symm
-    · exact runFrom_eq_of_halt tm _ htu hh
+    change (tm.runFrom (tm.initCfg input) t).Halted at hh
+    grind only [runFrom_eq_of_halt]
   exact ⟨p.toRunPath, rfl, hh, heq ▸ hout, le_rfl, h.2.2 p⟩
 
 /-- The machine computes `f` relative to given encodings within the given time and space bounds. -/

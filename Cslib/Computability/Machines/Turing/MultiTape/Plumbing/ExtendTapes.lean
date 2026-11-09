@@ -7,6 +7,7 @@ Authors: Christian Reitwiessner
 module
 
 public import Mathlib.Data.Fintype.Inv
+public import Cslib.Foundations.Data.Fin.Tuple
 public import Cslib.Computability.Machines.Turing.MultiTape.Plumbing.TransformsTapes
 
 /-!
@@ -134,32 +135,18 @@ agrees with the adapter defining `extendTapes`. -/
       refine Cfg.ext rfl rfl ?_ ?_ rfl <;> funext l <;> simp only [Action.apply, embed] <;>
         cases partialInv e l <;> simp
 
-private lemma partialInv_left_right (i : Fin k') :
-    partialInv (Fin.castAddEmb k') (Fin.natAdd k i) = none := by
-  apply partialInv_eq_none
-  rintro ⟨j, hj⟩
-  have := congrArg Fin.val hj
-  simp only [Fin.castAddEmb_apply, Fin.val_castAdd, Fin.val_natAdd] at this
-  omega
-
-private lemma partialInv_right_left (i : Fin k) :
-    partialInv (Fin.natAddEmb k) (Fin.castAdd k' i) = none := by
-  apply partialInv_eq_none
-  rintro ⟨j, hj⟩
-  have := congrArg Fin.val hj
-  change k + j.val = i.val at this
-  omega
-
 /-- Placing a configuration on the left block appends the unused right block of tapes. -/
 public lemma embed_castAddEmb (c : Cfg k Symbol State input)
     (tapes : Fin (k + k') → ℤ → Option Symbol) (heads : Fin (k + k') → ℤ) :
     embed (Fin.castAddEmb k') c tapes heads =
       ⟨c.state, c.inputPos, Fin.append c.workTapes (tapes ∘ Fin.natAdd k),
         Fin.append c.workTapePos (heads ∘ Fin.natAdd k), c.output⟩ := by
+  have outside (i : Fin k') : partialInv (Fin.castAddEmb k') (Fin.natAdd k i) = none :=
+    partialInv_eq_none _ (by simp [Set.mem_range, Fin.castAdd_ne_natAdd])
   have own (i : Fin k) : partialInv (Fin.castAddEmb k') (Fin.castAdd k' i) = some i :=
     partialInv_embed _ i
   refine Cfg.ext rfl rfl ?_ ?_ rfl <;> funext i <;>
-    induction i using Fin.addCases <;> simp [embed, own, partialInv_left_right]
+    induction i using Fin.addCases <;> simp [embed, own, outside]
 
 /-- Placing a configuration on the right block prepends the unused left block of tapes. -/
 public lemma embed_natAddEmb (c : Cfg k' Symbol State input)
@@ -167,10 +154,12 @@ public lemma embed_natAddEmb (c : Cfg k' Symbol State input)
     embed (Fin.natAddEmb k) c tapes heads =
       ⟨c.state, c.inputPos, Fin.append (tapes ∘ Fin.castAdd k') c.workTapes,
         Fin.append (heads ∘ Fin.castAdd k') c.workTapePos, c.output⟩ := by
+  have outside (i : Fin k) : partialInv (Fin.natAddEmb k) (Fin.castAdd k' i) = none :=
+    partialInv_eq_none _ (by simp [Set.mem_range, ne_comm, Fin.castAdd_ne_natAdd])
   have own (i : Fin k') : partialInv (Fin.natAddEmb k) (Fin.natAdd k i) = some i :=
     partialInv_embed _ i
   refine Cfg.ext rfl rfl ?_ ?_ rfl <;> funext i <;>
-    induction i using Fin.addCases <;> simp [embed, own, partialInv_right_left]
+    induction i using Fin.addCases <;> simp [embed, own, outside]
 
 /-- Extending the initial configuration with blank tapes gives the larger machine's initial
 configuration. -/
