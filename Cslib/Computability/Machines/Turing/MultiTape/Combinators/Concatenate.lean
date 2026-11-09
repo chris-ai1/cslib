@@ -75,33 +75,37 @@ theorem ComputesInTimeAndSpace.concatenate {tm₁ : MultiTapeTM k₁ Symbol Stat
       (space_map_embedHom_le ..).trans (by change p₂.space + _ ≤ _; omega)
     omega
 
-/-- Concatenate the encoded outputs of two functions computed on the same encoded input.
-The result is a word, encoded by the identity embedding. -/
+/-- Compute a function whose encoded output is the concatenation of two computed outputs.
+The input encoding is shared; the output types and encodings may differ. -/
 theorem ComputesFunInTimeAndSpace.concatenate {tm₁ : MultiTapeTM k₁ Symbol State₁}
-    {tm₂ : MultiTapeTM k₂ Symbol State₂} {α β γ : Type*} {f₁ : α → β} {f₂ : α → γ}
+    {tm₂ : MultiTapeTM k₂ Symbol State₂} {α β γ δ : Type*} {f₁ : α → β} {f₂ : α → γ} {f : α → δ}
     {encIn : α ↪ List Symbol} {enc₁ : β ↪ List Symbol} {enc₂ : γ ↪ List Symbol}
+    {encOut : δ ↪ List Symbol}
     {t₁ t₂ s₁ s₂ : α → ℕ}
     (h₁ : tm₁.ComputesFunInTimeAndSpace encIn enc₁ f₁ t₁ s₁)
-    (h₂ : tm₂.ComputesFunInTimeAndSpace encIn enc₂ f₂ t₂ s₂) :
-    (tm₁.concatenate tm₂).ComputesFunInTimeAndSpace encIn (Function.Embedding.refl _)
-      (fun x => enc₁ (f₁ x) ++ enc₂ (f₂ x))
-      (fun x => 2 * t₁ x + t₂ x + 2) (fun x => s₁ x + s₂ x + 2 * (k₁ + k₂)) :=
-  fun x => (h₁ x).concatenate (h₂ x)
+    (h₂ : tm₂.ComputesFunInTimeAndSpace encIn enc₂ f₂ t₂ s₂)
+    (henc : ∀ x, encOut (f x) = enc₁ (f₁ x) ++ enc₂ (f₂ x)) :
+    (tm₁.concatenate tm₂).ComputesFunInTimeAndSpace encIn encOut f
+      (fun x => 2 * t₁ x + t₂ x + 2) (fun x => s₁ x + s₂ x + 2 * (k₁ + k₂)) := by
+  intro x
+  rw [henc]
+  exact (h₁ x).concatenate (h₂ x)
 
-/-- Concatenate two computed functions' encoded outputs, with linear time overhead and additive
-work space. The output types and encodings can differ; the input encoding is shared. -/
-theorem ComputableInTimeAndSpace.concatenate {α β γ : Type*} {f₁ : α → β} {f₂ : α → γ}
+/-- A function whose encoding concatenates two computed outputs is computable with linear time
+and additive space overhead. The result function and encoding are specified by `henc`. -/
+theorem ComputableInTimeAndSpace.concatenate {α β γ δ : Type*} {f₁ : α → β} {f₂ : α → γ} {f : α → δ}
     {encIn : α ↪ List Bool} {enc₁ : β ↪ List Bool} {enc₂ : γ ↪ List Bool}
+    {encOut : δ ↪ List Bool}
     {t₁ t₂ s₁ s₂ : α → ℕ}
     (h₁ : ComputableInTimeAndSpace f₁ encIn enc₁ t₁ s₁)
-    (h₂ : ComputableInTimeAndSpace f₂ encIn enc₂ t₂ s₂) :
-    ComputableInTimeAndSpace (fun x => enc₁ (f₁ x) ++ enc₂ (f₂ x)) encIn
-      (Function.Embedding.refl _) (fun x => 2 * t₁ x + t₂ x + 2)
+    (h₂ : ComputableInTimeAndSpace f₂ encIn enc₂ t₂ s₂)
+    (henc : ∀ x, encOut (f x) = enc₁ (f₁ x) ++ enc₂ (f₂ x)) :
+    ComputableInTimeAndSpace f encIn encOut (fun x => 2 * t₁ x + t₂ x + 2)
       (fun x => 3 * (s₁ x + s₂ x)) := by
   obtain ⟨k₁, State₁, _, tm₁, hm₁⟩ := h₁
   obtain ⟨k₂, State₂, _, tm₂, hm₂⟩ := h₂
   refine ⟨k₁ + k₂, _, inferInstance, tm₁.concatenate tm₂, fun x => ?_⟩
-  have h := (hm₁ x).concatenate (hm₂ x)
+  have h := hm₁.concatenate hm₂ henc x
   have hk₁ := (hm₁ x).2.2.le
   have hk₂ := (hm₂ x).2.2.le
   exact ⟨h.1, h.2.1, h.2.2.mono (by dsimp only; omega)⟩

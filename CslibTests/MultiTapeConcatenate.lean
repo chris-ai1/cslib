@@ -15,8 +15,9 @@ open Turing.MultiTapeTM
 example : ComputableInTimeAndSpace (fun w : List Bool => w ++ w)
     (Function.Embedding.refl _) (Function.Embedding.refl _)
     (fun w => 3 * w.length + 5) (fun _ => 0) := by
-  have h := (computableInTimeAndSpace_id (enc := Function.Embedding.refl (List Bool))).concatenate
+  refine ((computableInTimeAndSpace_id (enc := Function.Embedding.refl (List Bool))).concatenate
     (computableInTimeAndSpace_id (enc := Function.Embedding.refl (List Bool)))
-  exact h.mono (fun w => by
-    change 2 * (w.length + 1) + (w.length + 1) + 2 ≤ 3 * w.length + 5
-    omega) (fun _ => le_rfl)
+    (fun _ => rfl)).mono ?_ (fun _ => le_rfl)
+  intro w
+  change 2 * (w.length + 1) + (w.length + 1) + 2 ≤ 3 * w.length + 5
+  omega
