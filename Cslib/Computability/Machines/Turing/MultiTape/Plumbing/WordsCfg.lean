@@ -12,8 +12,9 @@ public import Cslib.Computability.Machines.Turing.MultiTape.Configuration
 # Tapes holding words and configurations of such tapes
 
 The normal form in which "tape transformer" machines (cf. `TransformsTapes.lean`) start and finish:
-every work tape holds a word in the cells `0, 1, …` and is blank everywhere else, with every head
-at the start.
+every work tape holds a word in the cells `0, 1, …` and is blank everywhere else, with every work
+head at the start. The input head defaults to its starting position and can be set explicitly
+for scanning proofs.
 
 ## Main definitions
 
@@ -65,29 +66,40 @@ lemma tapeOfList_zero (xs : List Symbol) : tapeOfList xs 0 = xs.head? := by
   cases xs <;> rfl
 
 /-- The configuration whose work tape `i` holds exactly the word `ws i` with its head at the
-start, whose input head is at the start of the input, in state `q` with output `out`. -/
+start, in state `q` with output `out`. The input head defaults to the start of the input. -/
 @[simps]
 def wordsCfg (input : List Symbol) (q : Option State)
-    (ws : Fin k → List Symbol) (out : List Symbol) : Cfg k Symbol State input :=
-  ⟨q, 1, fun i => tapeOfList (ws i), fun _ => 0, out⟩
+    (ws : Fin k → List Symbol) (out : List Symbol)
+    (inputPos : Fin (input.length + 2) := 1) : Cfg k Symbol State input :=
+  ⟨q, inputPos, fun i => tapeOfList (ws i), fun _ => 0, out⟩
+
+/-- With no work tapes, a word configuration has no tape contents to specify. -/
+@[simp]
+lemma wordsCfg_noTapes (input : List Symbol) (q : Option State) (out : List Symbol)
+    (pos : Fin (input.length + 2) := 1) :
+    wordsCfg input q (k := 0) Fin.elim0 out pos =
+      ⟨q, pos, fun _ _ => none, fun _ => 0, out⟩ :=
+  Cfg.ext rfl rfl (Subsingleton.elim _ _) (Subsingleton.elim _ _) rfl
 
 /-- Remapping the state of a `wordsCfg` remaps its state and leaves the words alone. -/
 @[simp]
 lemma mapState_wordsCfg {State' : Type*} (φ : Option State → Option State')
-    (input : List Symbol) (q : Option State) (ws : Fin k → List Symbol) (out : List Symbol) :
-    (wordsCfg input q ws out).mapState φ = wordsCfg input (φ q) ws out := rfl
+    (input : List Symbol) (q : Option State) (ws : Fin k → List Symbol) (out : List Symbol)
+    (pos : Fin (input.length + 2) := 1) :
+    (wordsCfg input q ws out pos).mapState φ = wordsCfg input (φ q) ws out pos := rfl
 
 /-- Changing the state of a `wordsCfg` leaves the words alone. -/
 @[simp]
 lemma withState_wordsCfg {State' : Type*} (input : List Symbol) (q : Option State)
-    (ws : Fin k → List Symbol) (out : List Symbol) (q' : Option State') :
-    (wordsCfg input q ws out).withState q' = wordsCfg input q' ws out := rfl
+    (ws : Fin k → List Symbol) (out : List Symbol) (q' : Option State')
+    (pos : Fin (input.length + 2) := 1) :
+    (wordsCfg input q ws out pos).withState q' = wordsCfg input q' ws out pos := rfl
 
 /-- Prepending a word to the output of a `wordsCfg` prepends it to the output word. -/
 @[simp]
 lemma prependOutput_wordsCfg (input : List Symbol) (q : Option State)
-    (ws : Fin k → List Symbol) (out pre : List Symbol) :
-    (wordsCfg input q ws out).prependOutput pre = wordsCfg input q ws (pre ++ out) := rfl
+    (ws : Fin k → List Symbol) (out pre : List Symbol) (pos : Fin (input.length + 2) := 1) :
+    (wordsCfg input q ws out pos).prependOutput pre = wordsCfg input q ws (pre ++ out) pos := rfl
 
 /-- The initial configuration is the word configuration with blank tapes and no output. -/
 lemma Cfg.init_eq_wordsCfg (q₀ : State) (input : List Symbol) :
@@ -95,5 +107,53 @@ lemma Cfg.init_eq_wordsCfg (q₀ : State) (input : List Symbol) :
   refine Cfg.ext rfl rfl ?_ rfl rfl
   funext i
   simp [Cfg.init, wordsCfg]
+
+/-- Read the first symbol of the unprocessed input suffix. -/
+lemma inputSymbol_wordsCfg_cons {input rest : List Symbol} {n : ℕ} {b : Symbol}
+    (h : input.drop n = b :: rest) (ws : Fin k → List Symbol)
+    (q : Option State) (out : List Symbol) :
+    (wordsCfg input q ws out ⟨min (n + 1) (input.length + 1), by omega⟩).inputSymbol = some b := by
+  have hn : n < input.length := by
+    have := congrArg List.length h
+    simp only [List.length_drop, List.length_cons] at this
+    omega
+  rw [inputSymbolInner n (by simp [wordsCfg]; omega) hn]
+  have := congrArg List.head? h
+  simpa [List.getElem?_eq_getElem hn] using this
+
+/-- At the end of the input suffix the head reads a blank. -/
+lemma inputSymbol_wordsCfg_nil {input : List Symbol} {n : ℕ} (h : input.drop n = [])
+    (ws : Fin k → List Symbol) (q : Option State) (out : List Symbol) :
+    (wordsCfg input q ws out ⟨min (n + 1) (input.length + 1), by omega⟩).inputSymbol = none := by
+  have hn : input.length ≤ n := List.drop_eq_nil_iff.mp h
+  apply inputSymbol_eq_none_of_boundary
+  right
+  simp [wordsCfg, Nat.min_eq_right (by omega : input.length + 1 ≤ n + 1)]
+
+lemma Action.apply_wordsCfg_stay (input : List Symbol) (q q' : Option State) (n : ℕ)
+    (out : List Symbol) (b : Option Symbol) :
+    (Action.mk 0 Fin.elim0 b q').apply
+      (wordsCfg input q (k := 0) Fin.elim0 out
+        ⟨min (n + 1) (input.length + 1), by omega⟩) =
+      wordsCfg input q' (k := 0) Fin.elim0 (out ++ b.toList)
+        ⟨min (n + 1) (input.length + 1), by omega⟩ := by
+  apply Cfg.ext_zero_tapes <;> simp [wordsCfg, Action.apply]
+
+lemma Action.apply_wordsCfg_right (input : List Symbol) (q q' : Option State) (n : ℕ)
+    (out : List Symbol) (b : Option Symbol) :
+    (Action.mk 1 Fin.elim0 b q').apply
+      (wordsCfg input q (k := 0) Fin.elim0 out
+        ⟨min (n + 1) (input.length + 1), by omega⟩) =
+      wordsCfg input q' (k := 0) Fin.elim0 (out ++ b.toList)
+        ⟨min (n + 1 + 1) (input.length + 1), by omega⟩ := by
+  apply Cfg.ext_zero_tapes
+  · rfl
+  · apply Fin.ext
+    have h := val_moveInputPos_eq
+      (wordsCfg input q (k := 0) Fin.elim0 out
+        ⟨min (n + 1) (input.length + 1), by omega⟩).inputPos (1 : SignType)
+    simp only [wordsCfg, Action.apply, SignType.cast] at *
+    omega
+  · rfl
 
 end Turing

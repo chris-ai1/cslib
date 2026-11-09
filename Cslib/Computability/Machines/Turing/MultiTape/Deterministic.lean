@@ -324,6 +324,17 @@ If the Turing machine halts, it will stay at the halting configuration. -/
 noncomputable def runFrom (cfg : Cfg k Symbol State input) (t : ℕ) : Cfg k Symbol State input :=
   tm.step^[t] cfg
 
+@[simp]
+lemma runFrom_zero (cfg : Cfg k Symbol State input) : tm.runFrom cfg 0 = cfg := rfl
+
+lemma runFrom_one (cfg : Cfg k Symbol State input) : tm.runFrom cfg 1 = tm.step cfg := rfl
+
+/-- Split a run into two consecutive segments. -/
+lemma runFrom_add (cfg : Cfg k Symbol State input) (m n : ℕ) :
+    tm.runFrom cfg (m + n) = tm.runFrom (tm.runFrom cfg m) n := by
+  rw [Nat.add_comm, runFrom, Function.iterate_add_apply]
+  rfl
+
 /-- Every path of a deterministic machine follows its iterated step function. -/
 lemma runPath_apply_eq_runFrom (p : tm.RunPath input) (i : Fin (p.length + 1)) :
     p i = tm.runFrom p.head i := by
@@ -388,6 +399,12 @@ def Computes (tm : MultiTapeTM k Symbol State) (input output : List Symbol) : Pr
 def ComputesInTimeAndSpace (tm : MultiTapeTM k Symbol State)
     (input output : List Symbol) (t s : ℕ) : Prop :=
   tm.Computes input output ∧ tm.RunsInTime input t ∧ tm.RunsInSpace input s
+
+/-- Weaken the time and space bounds of a computed word. -/
+theorem ComputesInTimeAndSpace.mono {input output : List Symbol} {t s t' s' : ℕ}
+    (h : tm.ComputesInTimeAndSpace input output t s) (ht : t ≤ t') (hs : s ≤ s') :
+    tm.ComputesInTimeAndSpace input output t' s' :=
+  ⟨h.1, h.2.1.mono ht, h.2.2.mono hs⟩
 
 /-- A deterministic computation satisfies time and space bounds exactly when it has a halted
 run path with those bounds and the required output. -/
